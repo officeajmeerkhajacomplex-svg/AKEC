@@ -1,8 +1,5 @@
-import { Student, FeePayment, Notice } from './supabase';
+import { Student, Transaction } from './types';
 
-// Mock data generator for initial load and fallback
 export const mockStudents: Student[] = [];
 
-export const mockNotices: Notice[] = [];
-
-export const mockPayments: FeePayment[] = [];
+export const mockTransactions: Record<string, Transaction[]> = {};

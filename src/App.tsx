@@ -1,35 +1,60 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
+import MobileLayout from "./components/layout/MobileLayout";
+import Home from "./pages/Home";
+import StudentLedger from "./pages/StudentLedger";
+import SettingsPage from "./pages/Settings";
+import PrivacySecurity from "./pages/PrivacySecurity";
+import Login from "./pages/Login";
+import SplashScreen from "./components/layout/SplashScreen";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { LanguageProvider } from "./context/LanguageContext";
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AppProvider } from './lib/AppContext';
-import { AppShell } from './components/layout/AppShell';
-import { Toaster } from './components/ui/sonner';
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
 
-// Pages - to be implemented
-import { Dashboard } from './pages/Dashboard';
-import { Ledger } from './pages/Ledger';
-import { Notices } from './pages/Notices';
-import { Settings } from './pages/Settings';
-import { Auth } from './pages/Auth';
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-snow dark:bg-[#121212]">
+        <div className="w-12 h-12 border-4 border-dodger border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return <>{children}</>;
+}
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<AppShell />}>
-            <Route index element={<Dashboard />} />
-            <Route path="ledger" element={<Ledger />} />
-            <Route path="notices" element={<Notices />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-        <Toaster position="top-center" expand={false} richColors />
-      </BrowserRouter>
-    </AppProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AnimatePresence mode="wait">
+              {showSplash ? (
+                <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+              ) : null}
+            </AnimatePresence>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
+                <Route path="/" element={<Home />} />
+                <Route path="/student/:id" element={<StudentLedger />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/privacy-security" element={<PrivacySecurity />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
