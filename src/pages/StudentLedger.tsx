@@ -182,14 +182,32 @@ export default function StudentLedger() {
 
   const handleSendSMS = () => {
     if (!student?.phone || !student?.name) return;
-    const message = `Salam, This is a reminder from Ajmeer Khaja Educational Complex.\nStudent: ${student.name}\nPending Due: ₹${student.totalPending}\nPlease settle the dues at your earliest convenience.\nJazakallah.`;
+    const message = `അസ്സലാമു അലൈക്കും 
+
+ഇത് അജ്മീർ ഖാജാ എഡ്യൂക്കേഷണൽ കോംപ്ലക്സിൽ നിന്നുള്ള ഒരു ഓർമ്മപ്പെടുത്തലാണ് .
+
+🎓 *വിദ്യാർത്ഥി:* ${student.name}
+💰 *അടയ്ക്കാനുള്ള ബാക്കി തുക:* ₹${student.totalPending}
+
+ദയവായി ഈ തുക എത്രയും വേഗം അടയ്ക്കാൻ ശ്രദ്ധിക്കുമല്ലോ .
+
+ഇൻഷാ അല്ലാഹ് `;
     window.open(`sms:${student.phone}?body=${encodeURIComponent(message)}`, '_blank');
     setShowRemindSheet(false);
   };
 
   const handleSendWhatsApp = () => {
     if (!student?.phone || !student?.name) return;
-    const message = `Salam, This is a reminder from Ajmeer Khaja Educational Complex.\n*Student:* ${student.name}\n*Pending Due:* ₹${student.totalPending}\n\nPlease settle the dues at your earliest convenience.\nJazakallah.`;
+    const message = `അസ്സലാമു അലൈക്കും 
+
+ഇത് അജ്മീർ ഖാജാ എഡ്യൂക്കേഷണൽ കോംപ്ലക്സിൽ നിന്നുള്ള ഒരു ഓർമ്മപ്പെടുത്തലാണ് .
+
+🎓 *വിദ്യാർത്ഥി:* ${student.name}
+💰 *അടയ്ക്കാനുള്ള ബാക്കി തുക:* ₹${student.totalPending}
+
+ദയവായി ഈ തുക എത്രയും വേഗം അടയ്ക്കാൻ ശ്രദ്ധിക്കുമല്ലോ .
+
+ഇൻഷാ അല്ലാഹ് `;
     
     // Remove non-numeric characters from phone for WhatsApp
     const cleanPhone = student.phone.replace(/\D/g, '');
