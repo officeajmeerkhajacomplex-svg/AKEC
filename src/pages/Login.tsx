@@ -252,7 +252,7 @@ export default function Login() {
       </motion.div>
       
       <div className="absolute bottom-10 text-gray-400 text-xs font-medium tracking-wide">
-        &copy; 2024 AJMEER KHAJA EDUCATIONAL COMPLEX
+        &copy; 2026-27 AJMEER KHAJA EDUCATIONAL COMPLEX
       </div>
     </div>
   );
