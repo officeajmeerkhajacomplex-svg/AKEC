@@ -265,7 +265,7 @@ export default function UsthadStudents() {
                 <input required type="text" value={newStudent.parentName} onChange={e => setNewStudent({...newStudent, parentName: e.target.value})} className="w-full mt-1.5 h-12 bg-white border border-gray-200 rounded-xl px-4 text-gray-900 focus:ring-2 focus:ring-dodger/20 outline-none font-semibold shadow-sm" placeholder="Enter parent name" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Class / Dars Name</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Class</label>
                 <input required type="text" value={newStudent.className} onChange={e => setNewStudent({...newStudent, className: e.target.value})} className="w-full mt-1.5 h-12 bg-white border border-gray-200 rounded-xl px-4 text-gray-900 focus:ring-2 focus:ring-dodger/20 outline-none font-semibold shadow-sm" placeholder="e.g. Year 1" />
               </div>
               <div>
