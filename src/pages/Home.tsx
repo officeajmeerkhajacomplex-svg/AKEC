@@ -134,7 +134,7 @@ export default function Home() {
                   transition={{ delay: 0.2 }}
                   className="text-xl font-black tracking-tighter text-header-text leading-none drop-shadow-sm mb-0.5"
                 >
-                  AKEC LEDGER
+                  AKEC APP
                 </motion.h1>
                 <motion.p 
                   initial={{ x: -10, opacity: 0 }}
