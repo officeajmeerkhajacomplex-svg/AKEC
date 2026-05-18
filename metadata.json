@@ -1,0 +1,6 @@
+{
+  "name": "Ajmeer Khaja Educational Complex Ledger",
+  "description": "Digital Student Fee Ledger for Ustads, inspired by Khatabook.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
