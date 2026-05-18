@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import MobileLayout from "./components/layout/MobileLayout";
 import Home from "./pages/Home";
+import ParentHome from "./pages/ParentHome";
+import UsthadProgressManager from "./pages/UsthadProgressManager";
 import StudentLedger from "./pages/StudentLedger";
 import SettingsPage from "./pages/Settings";
 import PrivacySecurity from "./pages/PrivacySecurity";
@@ -11,6 +13,13 @@ import SplashScreen from "./components/layout/SplashScreen";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { LanguageProvider } from "./context/LanguageContext";
+
+import UsthadStudents from "./pages/UsthadStudents";
+
+function HomeRoleWrapper() {
+  const { user } = useAuth();
+  return user?.role === 'parent' ? <ParentHome /> : <Home />;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -46,8 +55,10 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<HomeRoleWrapper />} />
+                <Route path="/students" element={<UsthadStudents />} />
                 <Route path="/student/:id" element={<StudentLedger />} />
+                <Route path="/progress/:studentId" element={<UsthadProgressManager />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/privacy-security" element={<PrivacySecurity />} />
               </Route>

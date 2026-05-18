@@ -1,26 +1,64 @@
-import { useState, useEffect, FormEvent } from "react";
-import { Search, UserPlus, FileText, X, Trash2, AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/src/lib/utils";
-import { Student } from "@/src/lib/types";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { supabase } from "@/src/lib/supabase";
 
 export default function Home() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"ALL" | "PENDING" | "RECEIVED">("ALL");
   
-  const [students, setStudents] = useState<Student[]>([]);
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", className: "", phone: "" });
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [students, setStudents] = useState<any[]>([]);
   const [englishDate, setEnglishDate] = useState("");
+
+  const fetchStudents = async () => {
+    const { data: studentsData, error } = await supabase
+      .from('students')
+      .select(`
+        *,
+        ledger_entries(amount, type)
+      `);
+      
+    if (studentsData) {
+      const formatted = studentsData.map(s => {
+        let totalPending = 0;
+        let totalPaid = 0;
+        
+        // Ensure sorted by date to calculate running balance correctly if needed
+        // but here we just need totals similar to original logic
+        s.ledger_entries?.forEach((tx: any) => {
+          if (tx.type === 'DUE' || tx.type === 'given') {
+            totalPending += Number(tx.amount);
+          } else if (tx.type === 'PAID' || tx.type === 'received') {
+            totalPaid += Number(tx.amount);
+            if (totalPending > 0) {
+              if (Number(tx.amount) >= totalPending) {
+                totalPending = 0;
+              } else {
+                totalPending -= Number(tx.amount);
+              }
+            }
+          }
+        });
+        
+        return {
+          id: s.id,
+          name: s.student_name,
+          className: s.class_name,
+          department: s.department,
+          phone: s.parent_phone,
+          totalPending,
+          totalPaid
+        };
+      });
+      setStudents(formatted);
+    }
+  };
 
   useEffect(() => {
     const now = new Date();
-    
-    // Formatting English Date
     const engFormatter = new Intl.DateTimeFormat('en-GB', { 
       day: 'numeric', 
       month: 'long', 
@@ -29,69 +67,8 @@ export default function Home() {
     });
     setEnglishDate(engFormatter.format(now));
 
-    const saved = localStorage.getItem('akec_students');
-    if (saved) {
-      setStudents(JSON.parse(saved));
-    }
-
-    // Optional: Request geolocation to satisfy user request for geolocation usage
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(() => {}, () => {});
-    }
+    fetchStudents();
   }, []);
-
-  const handleAddStudent = (e: FormEvent) => {
-    e.preventDefault();
-    if (!newStudent.name || !newStudent.className) return;
-
-    const student: Student = {
-      id: crypto.randomUUID(),
-      name: newStudent.name,
-      className: newStudent.className,
-      phone: newStudent.phone,
-      totalPending: 0,
-      totalPaid: 0,
-    };
-
-    const updated = [...students, student];
-    setStudents(updated);
-    localStorage.setItem('akec_students', JSON.stringify(updated));
-    setIsAddOpen(false);
-    setNewStudent({ name: "", className: "", phone: "" });
-  };
-
-  const startPress = (student: Student) => {
-    const timer = setTimeout(() => {
-        setStudentToDelete(student);
-    }, 700); // 700ms hold
-    setLongPressTimer(timer);
-  };
-
-  const endPress = () => {
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        setLongPressTimer(null);
-    }
-  };
-
-  const handleDeleteStudent = () => {
-    if (!studentToDelete) return;
-    
-    // Remove student
-    const updated = students.filter(s => s.id !== studentToDelete.id);
-    setStudents(updated);
-    localStorage.setItem('akec_students', JSON.stringify(updated));
-
-    // Remove transactions for this student
-    const allTxsStr = localStorage.getItem('akec_transactions');
-    if (allTxsStr) {
-      const allTxs = JSON.parse(allTxsStr);
-      delete allTxs[studentToDelete.id];
-      localStorage.setItem('akec_transactions', JSON.stringify(allTxs));
-    }
-
-    setStudentToDelete(null);
-  };
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -278,9 +255,6 @@ export default function Home() {
               variants={itemVariants}
               key={student.id}
               onClick={() => navigate(`/student/${student.id}`)}
-              onPointerDown={() => startPress(student)}
-              onPointerUp={endPress}
-              onPointerLeave={endPress}
               whileTap={{ scale: 0.98 }}
               className="bg-snow dark:bg-[#1C1C1C] p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100/80 dark:border-gray-800 flex justify-between items-center transition-all cursor-pointer hover:shadow-md dark:hover:bg-gray-800/20 select-none touch-none"
             >
@@ -329,143 +303,6 @@ export default function Home() {
           )}
         </motion.div>
       </div>
-
-      {/* Floating Action Button */}
-      <motion.button 
-        initial={{ scale: 0, rotate: -45 }}
-        animate={{ scale: 1, rotate: 0 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setIsAddOpen(true)}
-        className="fixed bottom-28 right-5 w-14 h-14 bg-dodger text-snow rounded-full flex justify-center items-center shadow-xl shadow-dodger/40 z-20 border-2 border-white/20 backdrop-blur-md"
-      >
-        <UserPlus className="w-6 h-6" />
-      </motion.button>
-
-      {/* Add Student Bottom Sheet */}
-      <AnimatePresence>
-      {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
-            onClick={() => setIsAddOpen(false)} 
-          />
-          <motion.div 
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative bg-snow dark:bg-[#1C1C1C] w-full max-w-sm rounded-t-[2rem] sm:rounded-3xl p-7 px-6 pb-8 shadow-2xl border-t border-white/20 dark:border-gray-800"
-          >
-            <div className="flex justify-between items-center mb-7">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-snow tracking-tight">Add New Student</h2>
-              <button onClick={() => setIsAddOpen(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-900 dark:hover:text-snow bg-gray-50 dark:bg-gray-800 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Student Name</label>
-                <input 
-                  required
-                  type="text" 
-                  value={newStudent.name}
-                  onChange={e => setNewStudent({...newStudent, name: e.target.value})}
-                  className="w-full mt-1.5 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 text-gray-900 dark:text-snow focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-dodger/20 focus:border-dodger transition-all outline-none font-semibold shadow-sm"
-                  placeholder="Enter full name"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Class / Department</label>
-                <input 
-                  required
-                  type="text" 
-                  value={newStudent.className}
-                  onChange={e => setNewStudent({...newStudent, className: e.target.value})}
-                  className="w-full mt-1.5 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 text-gray-900 dark:text-snow focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-dodger/20 focus:border-dodger transition-all outline-none font-semibold shadow-sm"
-                  placeholder="e.g. 5th Standard, Hifz"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Guardian Phone (Optional)</label>
-                <input 
-                  type="tel" 
-                  value={newStudent.phone}
-                  onChange={e => setNewStudent({...newStudent, phone: e.target.value})}
-                  className="w-full mt-1.5 h-12 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 text-gray-900 dark:text-snow focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-dodger/20 focus:border-dodger transition-all outline-none font-semibold shadow-sm"
-                  placeholder="Parent's number"
-                />
-              </div>
-
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit"
-                className="w-full h-14 mt-6 bg-dodger text-snow rounded-xl font-bold uppercase tracking-wide transition-all shadow-lg shadow-dodger/30"
-              >
-                Save Student
-              </motion.button>
-            </form>
-          </motion.div>
-        </div>
-      )}
-      </AnimatePresence>
-
-      {/* Delete Confirmation Popup */}
-      <AnimatePresence>
-      {studentToDelete && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0" 
-                onClick={() => setStudentToDelete(null)} 
-              />
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-snow dark:bg-[#1C1C1C] max-w-sm w-full rounded-[2.5rem] p-8 relative z-[110] shadow-2xl border border-white/20 dark:border-gray-800 text-center"
-              >
-                  <motion.div 
-                    initial={{ rotate: -15, scale: 0.5 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6"
-                  >
-                      <AlertTriangle className="w-8 h-8 text-rose-500" />
-                  </motion.div>
-                  <h3 className="text-xl font-black text-gray-800 dark:text-snow mb-2">Remove Student?</h3>
-                  <p className="text-sm text-gray-400 dark:text-gray-400 mb-8 px-4 leading-relaxed font-bold">
-                    This will delete <span className="text-gray-700 dark:text-gray-200">{studentToDelete.name}</span> and all their ledger history. This cannot be undone.
-                  </p>
-                  
-                  <div className="flex flex-col gap-3">
-                      <motion.button 
-                          whileTap={{ scale: 0.95 }}
-                          onClick={handleDeleteStudent}
-                          className="w-full py-4.5 rounded-2xl bg-rose-500 text-snow font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-rose-500/20"
-                      >
-                          Delete Student
-                      </motion.button>
-                      <motion.button 
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setStudentToDelete(null)}
-                          className="w-full py-4.5 rounded-2xl bg-gray-50 text-gray-400 font-black text-[11px] uppercase tracking-widest transition-all"
-                      >
-                          Cancel
-                      </motion.button>
-                  </div>
-              </motion.div>
-          </div>
-      )}
-      </AnimatePresence>
     </div>
   );
 }

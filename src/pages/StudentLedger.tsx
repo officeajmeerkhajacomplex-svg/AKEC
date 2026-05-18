@@ -3,8 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone, Download, MessageSquare, Home, FileText, Send, Share2, Trash2, AlertTriangle } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { format, parseISO } from "date-fns";
-import { Student, Transaction } from "@/src/lib/types";
+import { Transaction } from "@/src/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/src/lib/supabase";
 
 export default function StudentLedger() {
   const { id } = useParams();
@@ -12,157 +13,108 @@ export default function StudentLedger() {
   const [showTransactionSheet, setShowTransactionSheet] = useState<"DUE" | "PAID" | null>(null);
   const [showRemindSheet, setShowRemindSheet] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+  const [txToDelete, setTxToDelete] = useState<any | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
-  const [student, setStudent] = useState<Student | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [student, setStudent] = useState<any | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [txAmount, setTxAmount] = useState("");
   const [txNote, setTxNote] = useState("");
 
+  const fetchData = async () => {
+    if (!id) return;
+    
+    const { data: studentData } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (studentData) {
+      const { data: txsData } = await supabase
+        .from('ledger_entries')
+        .select('*')
+        .eq('student_id', id)
+        .order('date', { ascending: true }); // sort ascending to calculate running balance
+
+      let totalPending = 0;
+      let totalPaid = 0;
+      const formattedTxs = (txsData || []).map(tx => {
+        const amount = Number(tx.amount);
+        if (tx.type === 'given' || tx.type === 'DUE') {
+          totalPending += amount;
+        } else if (tx.type === 'PAID' || tx.type === 'received') {
+          totalPaid += amount;
+          if (totalPending > 0) {
+            if (amount >= totalPending) {
+              totalPending = 0;
+            } else {
+              totalPending -= amount;
+            }
+          }
+        }
+        return {
+          id: tx.id,
+          amount,
+          type: (tx.type === 'received' || tx.type === 'PAID') ? 'PAID' : 'DUE',
+          note: tx.note,
+          date: tx.date,
+          runningBalance: totalPending
+        };
+      });
+
+      setTransactions(formattedTxs);
+      setStudent({
+        id: studentData.id,
+        name: studentData.student_name,
+        className: studentData.class_name,
+        phone: studentData.parent_phone,
+        totalPending,
+        totalPaid
+      });
+    }
+  };
+
   useEffect(() => {
-    const savedStudents = localStorage.getItem('akec_students');
-    if (savedStudents) {
-      const parsed: Student[] = JSON.parse(savedStudents);
-      const s = parsed.find(s => s.id === id);
-      if (s) setStudent(s);
-    }
-    const savedTxs = localStorage.getItem('akec_transactions');
-    if (savedTxs) {
-      const parsed = JSON.parse(savedTxs);
-      if (parsed[id || ""]) {
-        setTransactions(parsed[id || ""]);
-      }
-    }
+    fetchData();
   }, [id]);
 
-  const handleAddTransaction = () => {
+  const handleAddTransaction = async () => {
     if (!student || !txAmount || isNaN(Number(txAmount)) || Number(txAmount) <= 0) return;
     
     const amount = Number(txAmount);
-    const type = showTransactionSheet;
-    
+    let type = showTransactionSheet;
     if (!type) return;
 
-    // Calc new totals
-    let newPending = student.totalPending;
-    let newPaid = student.totalPaid;
-    let newRunningBalance = 0;
+    const dbType = type === 'PAID' ? 'received' : 'DUE'; // Match database constraint ('given', 'received') wait actually schema says: type in ('given', 'received')? No wait, schema says 'given', 'received', but previous code used 'DUE', 'PAID'. Let's use 'DUE' and 'received' maybe?
+    // Let me check database.sql: type in ('given', 'received') oh the schema says 'given', 'received'! Wait! I'll fix that below.
 
-    if (type === "DUE") {
-      newPending += amount;
-    } else if (type === "PAID") {
-      newPaid += amount;
-      if (newPending > 0) {
-        if (amount >= newPending) {
-          newPending = 0;
-        } else {
-          newPending -= amount;
-        }
-      }
-    }
-    
-    newRunningBalance = newPending;
-
-    const newTx: Transaction = {
-      id: crypto.randomUUID(),
-      studentId: student.id,
+    await supabase.from('ledger_entries').insert([{
+      student_id: student.id,
       amount,
-      type,
-      date: new Date().toISOString(),
+      type: type === 'DUE' ? 'given' : 'received', 
       note: txNote,
-      runningBalance: newRunningBalance
-    };
+      date: new Date().toISOString().split('T')[0]
+    }]);
 
-    const updatedTransactions = [...transactions, newTx];
-    setTransactions(updatedTransactions);
-    
-    const allTxsStr = localStorage.getItem('akec_transactions');
-    const allTxs = allTxsStr ? JSON.parse(allTxsStr) : {};
-    allTxs[student.id] = updatedTransactions;
-    localStorage.setItem('akec_transactions', JSON.stringify(allTxs));
-
-    const updatedStudent = {
-      ...student,
-      totalPending: newPending,
-      totalPaid: newPaid,
-      lastTransactionDate: new Date().toISOString()
-    };
-    setStudent(updatedStudent);
-
-    const savedStudentsStr = localStorage.getItem('akec_students');
-    if (savedStudentsStr) {
-      const parsed: Student[] = JSON.parse(savedStudentsStr);
-      const updatedList = parsed.map(s => s.id === student.id ? updatedStudent : s);
-      localStorage.setItem('akec_students', JSON.stringify(updatedList));
-    }
+    await fetchData();
 
     setTxAmount("");
     setTxNote("");
     setShowTransactionSheet(null);
   };
 
-  const recalculateAndSave = (updatedTransactions: Transaction[]) => {
-    if (!student) return;
-
-    // Sort by date ascending to recalculate running balances correctly
-    const sortedAsc = [...updatedTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    let currentPending = 0;
-    let currentPaid = 0;
-
-    const recalcedTransactions = sortedAsc.map(tx => {
-      if (tx.type === 'DUE') {
-        currentPending += tx.amount;
-      } else {
-        currentPaid += tx.amount;
-        if (currentPending > 0) {
-          if (tx.amount >= currentPending) {
-            currentPending = 0;
-          } else {
-            currentPending -= tx.amount;
-          }
-        }
-      }
-      return { ...tx, runningBalance: currentPending };
-    });
-
-    setTransactions(recalcedTransactions);
-    
-    // Save transactions
-    const allTxsStr = localStorage.getItem('akec_transactions');
-    const allTxs = allTxsStr ? JSON.parse(allTxsStr) : {};
-    allTxs[student.id] = recalcedTransactions;
-    localStorage.setItem('akec_transactions', JSON.stringify(allTxs));
-
-    // Update student totals
-    const updatedStudent = {
-      ...student,
-      totalPending: currentPending,
-      totalPaid: currentPaid,
-      lastTransactionDate: recalcedTransactions.length > 0 ? recalcedTransactions[recalcedTransactions.length - 1].date : student.lastTransactionDate
-    };
-    setStudent(updatedStudent);
-
-    // Save student
-    const savedStudentsStr = localStorage.getItem('akec_students');
-    if (savedStudentsStr) {
-      const parsed: Student[] = JSON.parse(savedStudentsStr);
-      const updatedList = parsed.map(s => s.id === student.id ? updatedStudent : s);
-      localStorage.setItem('akec_students', JSON.stringify(updatedList));
-    }
-  };
-
-  const handleDeleteTransaction = () => {
+  const handleDeleteTransaction = async () => {
     if (!txToDelete || !student) return;
-    const updatedList = transactions.filter(t => t.id !== txToDelete.id);
-    recalculateAndSave(updatedList);
+    await supabase.from('ledger_entries').delete().eq('id', txToDelete.id);
+    await fetchData();
     setTxToDelete(null);
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
     if (!student) return;
-    recalculateAndSave([]);
+    await supabase.from('ledger_entries').delete().eq('student_id', student.id);
+    await fetchData();
     setShowClearConfirm(false);
   };
 

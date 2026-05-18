@@ -1,11 +1,15 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard, Settings, Users, BookOpen } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function MobileLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const isParent = user?.role === 'parent';
 
   // Hide bottom nav on detail screens
   const isDetailScreen = location.pathname.includes('/student/');
@@ -34,11 +38,11 @@ export default function MobileLayout() {
       
       {/* Bottom Navigation */}
       {!isDetailScreen && (
-        <nav className="absolute bottom-0 w-full bg-snow dark:bg-[#1C1C1C] border-t border-gray-100 dark:border-gray-800 px-10 pt-4 pb-6 flex justify-around items-center z-40 rounded-t-[2rem] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+        <nav className="absolute bottom-0 w-full bg-snow dark:bg-[#1C1C1C] border-t border-gray-100 dark:border-gray-800 px-10 pt-4 pb-6 flex justify-between items-center z-40 rounded-t-[2rem] shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
           <button 
             onClick={() => navigate('/')}
             className={cn(
-              "flex flex-col items-center gap-1 transition-all relative",
+              "flex flex-col items-center gap-1 transition-all relative w-16",
               location.pathname === '/' ? "text-dodger" : "text-gray-400"
             )}
           >
@@ -54,7 +58,7 @@ export default function MobileLayout() {
             <span className={cn(
                 "text-[10px] uppercase tracking-widest font-black transition-all",
                 location.pathname === '/' ? "opacity-100 scale-105" : "opacity-70 scale-100"
-            )}>Ledger</span>
+            )}>{isParent ? "Progress" : "Ledger"}</span>
             {location.pathname === '/' && (
               <motion.div 
                 layoutId="nav-indicator"
@@ -63,11 +67,42 @@ export default function MobileLayout() {
               />
             )}
           </button>
+
+          {!isParent && (
+            <button 
+              onClick={() => navigate('/students')}
+              className={cn(
+                "flex flex-col items-center gap-1 transition-all relative w-16",
+                location.pathname === '/students' ? "text-dodger" : "text-gray-400"
+              )}
+            >
+              <motion.div
+                animate={{
+                  scale: location.pathname === '/students' ? 1.1 : 1,
+                  y: location.pathname === '/students' ? -2 : 0
+                }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              >
+                <Users className="w-6 h-6" strokeWidth={location.pathname === '/students' ? 2.5 : 2} />
+              </motion.div>
+              <span className={cn(
+                  "text-[10px] uppercase tracking-widest font-black transition-all",
+                  location.pathname === '/students' ? "opacity-100 scale-105" : "opacity-70 scale-100"
+              )}>Students</span>
+              {location.pathname === '/students' && (
+                <motion.div 
+                  layoutId="nav-indicator"
+                  className="absolute -bottom-2 w-1 h-1 bg-dodger rounded-full"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+            </button>
+          )}
           
           <button 
             onClick={() => navigate('/settings')}
             className={cn(
-              "flex flex-col items-center gap-1 transition-all relative",
+              "flex flex-col items-center gap-1 transition-all relative w-16",
               location.pathname === '/settings' ? "text-dodger" : "text-gray-400"
             )}
           >

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/src/lib/utils";
 
-export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
+export default function SplashScreen({ onComplete }: { onComplete: () => void; key?: string }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete();

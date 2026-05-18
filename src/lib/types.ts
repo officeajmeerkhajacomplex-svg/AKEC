@@ -6,6 +6,7 @@ export interface Student {
   totalPending: number;
   totalPaid: number;
   lastTransactionDate?: string;
+  parentName?: string;
 }
 
 export type TransactionType = 'DUE' | 'PAID';
